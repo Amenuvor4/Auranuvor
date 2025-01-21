@@ -9,7 +9,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `${process.env.OAUTH_CALLBACK_URL}/google`,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -38,27 +38,36 @@ passport.use(
       {
         clientID: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        callbackURL: `${process.env.OAUTH_CALLBACK_URL}/github`,
+        callbackURL: process.env.GITHUB_CALLBACK_URL,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
-          const email = profile.emails[0]?.value; // GitHub may not always provide email
+          // Safely access email or fallback to a GitHub-based pseudo-email
+          const email = profile.emails?.[0]?.value || `${profile.username}@github.com`;
+  
           if (!email) {
-            return done(null, false, { message: 'GitHub account must have a public email.' });
+            console.error('GitHub profile does not provide an email:', profile);
+            return done(null, false, { message: 'GitHub account does not provide an email.' });
           }
   
+          // Check if a user with this email exists in the database
           let user = await User.findOne({ email });
           if (!user) {
+            // If no user exists, create one
             user = new User({
               email,
-              name: profile.displayName || profile.username, // Use username if displayName is not available
+              name: profile.displayName || profile.username || 'No Name',
+              githubId: profile.id, // Optional: Save GitHub ID if needed
             });
             await user.save();
           }
   
+          // Generate a JWT token for the user
           const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  
           done(null, { user, token });
         } catch (error) {
+          console.error('GitHub strategy error:', error);
           done(error, null);
         }
       }
