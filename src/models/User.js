@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs')
 
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  password: { type: String },
   name: { type: String },
   preferences: {
     notifications: { type: Boolean, default: true },
@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
 
 
 userSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) return next(); // Only hash if password is modified
+    if (!this.password || !this.isModified('password')) return next(); // Only hash if password is modified
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
