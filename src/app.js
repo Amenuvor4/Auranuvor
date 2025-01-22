@@ -4,6 +4,8 @@ const connectDB = require('./config/db');
 const passport = require('passport');
 require('./config/passportConfig');
 
+const app = express();
+
 
 // Load environment variables
 dotenv.config();
@@ -11,7 +13,6 @@ dotenv.config();
 // Connect to MongoDB
 connectDB();
 
-const app = express();
 
 // Middleware for parsing JSON
 app.use(express.json());
@@ -26,6 +27,8 @@ const taskRoutes = require('./routes/taskRoutes'); // Task management routes
 // Use routes
 app.use('/api/auth', authRoutes); // Mount authentication routes
 app.use('/api/tasks', taskRoutes); // Mount task management routes
+
+
 
 // Start the server
 const PORT = process.env.PORT || 5000;

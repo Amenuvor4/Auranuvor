@@ -2,7 +2,10 @@ const jwt = require('jsonwebtoken')
 
 //Middleware to protect routes requiring authentication
 const protect = (req, res, next) => {
-    const token = req.header('Authorization') && req.header('Authorization').split(' ')[1];
+
+
+    const authHeader = req.header('Authorization');
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
     if(!token){
         return res.status(401).json({message: 'No token, authorization denied'});
@@ -19,6 +22,7 @@ const protect = (req, res, next) => {
         //Continue to the next middleware or route handler
         next();
     } catch (error){
+        console.error('JWT Verification Error:', error.message)
         res.status(401).json({ message: 'Token is not vaild'});
     }
 };

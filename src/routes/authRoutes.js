@@ -30,36 +30,59 @@ router.post('/register', async (req, res) => {
 
 // Login route
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, loginMethod } = req.body;
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+    if (loginMethod === 'email') {
+      // Handle traditional email/password login
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      return res.status(200).json({
+        token,
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          preferences: user.preferences,
+        },
+      });
+    } else if (loginMethod === 'github' || loginMethod === 'google') {
+      // Handle OAuth login (GitHub/Google)
+      const provider = loginMethod === 'github' ? 'githubId' : 'googleId';
+      const user = await User.findOne({ [provider]: req.body.id });
+
+      if (!user) {
+        return res.status(400).json({ message: `No user found for ${loginMethod}` });
+      }
+
+      // Create a JWT for the user
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      return res.status(200).json({
+        token,
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          preferences: user.preferences,
+        },
+      });
+    } else {
+      return res.status(400).json({ message: 'Invalid login method' });
     }
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '1h',
-    });
-
-    res.status(200).json({ 
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        preferences: user.preferences,
-      },
-    });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
 
 // A protected route
 router.get('/profile', protect, async (req, res) => {
@@ -72,7 +95,8 @@ router.get('/profile', protect, async (req, res) => {
 
     res.status(200).json({ user});
   } catch (error) {
-    res.status(500).json({message: 'Server error'})
+    console.error('Error fetching user profile:', error.message);
+    res.status(500).json({ message: 'Unable to fetch user profile', error: error.message });
   }
 });
 
